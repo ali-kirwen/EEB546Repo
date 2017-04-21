@@ -1,0 +1,136 @@
+---
+title: "Lovett_Ranges_Assignment"
+author: "Ali Kirwen"
+date: "April 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#Install Bioconductor in R
+```{r source}
+source("http://bioconductor.org/biocLite.R")
+biocLite()
+```
+
+
+#Install the GenomicRanges package inside of the Bioconductor's Primary Packages 
+```{r}
+biocLite("GenomicRanges")
+```
+
+
+#Install the IRanges program, which is a dependency of GenomicRanges
+```{r}
+library(IRanges)
+```
+
+#Install GenomicFeatures to create and work with transcript based annotations. 
+```{r}
+library(BiocInstaller)
+biocLite("GenomicFeatures")
+```
+
+#Install an annotation package for the house mouse (Mus muculus)
+```{r}
+biocLite("TxDb.Mmusculus.UCSC.mm10.ensGene")
+```
+
+#Install the library for the Mus musculus 
+```{r}
+packagelibrary(TxDb.Mmusculus.UCSC.mm10.ensGene)
+```
+
+
+# Set a variable (txdb) to be the Mus musclus package. This creates an SQLite database of the transcripts. 
+```{r}
+txdb <- TxDb.Mmusculus.UCSC.mm10.ensGene
+```
+
+
+#Instiall rtracklayer to import and export data more easily. 
+```{r}
+library(rtracklayer)
+```
+
+
+#A Mus musculus genetic database is imported from a GitHub repository. 
+mm_gtf <- import('Mus_musculus.GRCm38.75_chr1.gtf.gz')
+
+#rtracklayer can export subsets of data into different file formats. 
+
+#Import a file with variants from chromosome 1 (chr1) of Mus musculus and set it as the variable dbsnp137. 
+```{r}
+dbsnp137 <- import("mm10_snp137_chr1_trunc.bed.gz")
+```
+
+
+#Find all variants within the exons of chr1. First, the exons are collapsed together if there is overlapping. For this, the database (txdb) will be used. 
+```{r}
+collapsed_exons <- reduce(exons(txdb), ignore.strand=TRUE)
+```
+
+
+#From the common exon collapssed databased, an object is created with only the exons in chr1.
+```{r}
+chr1_collapsed_exons <- collapsed_exons[seqnames(collapsed_exons) == "chr1"]
+```
+
+
+#The file can now be inspected.The width of dbsnp137 (chr1) is examined. 
+```{r}
+summary(width(dbsnp137))
+```
+
+
+#A copy of dbsnp137 is created and called dbsnp137_resized. This will be used to create a variant (chr1) with a width that is not 0. 
+```{r}
+dbsnp137_resized <- dbsnp137
+```
+
+
+#The width of dbsnp137_resized is set to 0 and this is stored in an object zw_i.
+```{r}
+zw_i <- width(dbsnp137_resized) == 0
+dbsnp137_resized[zw_i] <- resize(dbsnp137_resized[zw_i], width=1)
+```
+
+
+#Now, the variants that overlap exons on chr1 can be pulled out of the database by creating a hits object. 
+```{r}
+hits <- findOverlaps(dbsnp137_resized, chr1_collapsed_exons, 
+        ignore.strand=TRUE)
+```
+
+        
+#The number of variants is found. 
+```{r}
+length(unique(queryHits(hits)))
+```
+
+
+#The porportion of variantions that are within the exons are found. 
+```{r}
+length(unique(queryHits(hits)))/length(dbsnp137_resized)
+```
+
+
+#countOverlaps() finds the number of variants per exon. 
+```{r}
+var_counts <- countOverlaps(chr1_collapsed_exons, dbsnp137_resized, ignore.strand=TRUE)
+```
+
+
+#The number of variants per exon can be appended to the exons object created earlier
+```{r}
+chr1_collapsed_exons$num_vars <- var_counts
+```
+
+
+#The file with the appended variation column is printed out to a .csv file.
+```{r}
+write.csv(chr_collasped_exons, file = "Mm_with_exonvar.csv")
+```
